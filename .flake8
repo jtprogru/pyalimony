@@ -1,0 +1,14 @@
+[flake8]
+ignore = W391
+max-line-length = 119
+format = ${cyan}%(path)s${reset}:${yellow_bold}%(row)d${reset}:${green_bold}%(col)d${reset}: ${red_bold}%(code)s${reset} %(text)s
+
+exclude =
+      static,
+      migrations,
+      frontend,
+      .git,
+      __pycache__,
+      venv,
+      env,
+      test*.py

@@ -1,5 +1,9 @@
 # coding=utf-8
 
+"""
+    Ключевые классы структур данных
+"""
+
 import datetime
 
 from pyalimony.config import SALARY
@@ -7,6 +11,9 @@ from pyalimony.utils import get_percent_of_salary
 
 
 class AlimonyChildren:
+    """
+        Класс описывающий алименты с учетом долгов
+    """
     def __init__(self,
                  debt: float,
                  alimony_percent: float,
@@ -30,14 +37,17 @@ class AlimonyChildren:
         # Сколько всего месяцев выплачивать задолженность
         self.total_how_long = float("{:10.2f}".format(self.debt / self.debt_payment))
         # Сколько осталось месяцев выплачивать задолженность
-        self.last_how_long = float("{:10.2f}".format(self.__current_debt() / self.debt_payment))
+        self.last_how_long = float("{:10.2f}".format(self.current_debt() / self.debt_payment))
 
-    def __current_debt(self):
+    def current_debt(self):
         cur_month = datetime.date.today().month
         return float("{:10.2f}".format(self.debt - (self.debt_payment * (cur_month - self.start_month - 1))))
 
 
 class Children:
+    """
+        Класс описывающий ребенка с алиментами
+    """
     def __init__(self,
                  first_name: str,
                  second_name: str,
