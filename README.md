@@ -34,3 +34,10 @@ childrens:
       alimony_percent: 16.6
       debt: 100000
 ```
+
+## Development
+Установка зависимостей и запуск:
+```bash
+poetry install
+poetry run pyalimony
+```
