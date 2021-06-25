@@ -2,6 +2,7 @@ name: CI
 
 'on':
   push:
+    branches: [ '*' ]
   pull_request:
     branches: [ '*' ]
 
@@ -30,6 +31,31 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install
+
+      - name: Generate config
+        run: |
+          echo """---
+              SALARY: 1000000
+              PERCENT: 70.0
+              childrens:
+                - first_name: 'Иванов'
+                  second_name: 'Иван'
+                  middle_name: 'Михайловна'
+                  birthday: '30.11.2006'
+                  alimony:
+                    total_percent: 40.0
+                    alimony_percent: 25.0
+                    debt: 200000
+
+                - first_name: 'Савин'
+                  second_name: 'Артём'
+                  middle_name: 'Михайлович'
+                  birthday: '08.05.2009'
+                  alimony:
+                    total_percent: 30.0
+                    alimony_percent: 16.6
+                    debt: 100000
+              """ > ~/.config/alimony.yaml
 
       - name: Linters
         run: |
