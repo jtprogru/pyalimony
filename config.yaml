@@ -1,15 +1,3 @@
-# pyalimony
-
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/jtprogru/pyalimony/CI?label=CI)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/jtprogru/pyalimony/RELEASE?label=RELEASE)
-![GitHub](https://img.shields.io/github/license/jtprogru/pyalimony)
-
-Можно посчитать сколько осталось платить по алиментам
-
-## Example
-Пример входных данных, записанных в файл `config.yaml`:
-
-```yaml
 ---
 SALARY: 1000000
 # Рразмер удержаний по всем ИП
@@ -33,4 +21,3 @@ childrens:
       total_percent: 30.0
       alimony_percent: 16.6
       debt: 100000
-```

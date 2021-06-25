@@ -12,38 +12,42 @@
         из них 16.6 = текущий платеж
         а 13.7 = погашение долга
 """
+from pprint import pprint
 
-from pyalimony.struct import Children, AlimonyChildren
+from pyalimony.struct import Children  #, AlimonyChildren
 from pyalimony.reports import report
+from pyalimony.config import CHILDRENS
 
 
 def main():
-    children1 = Children(
-        first_name='Савина',
-        second_name='Анна',
-        middle_name='Михайловна',
-        birthday='08.11.2016',
-        alimony=AlimonyChildren(
-            total_percent=40.0,
-            alimony_percent=25.0,
-            debt=280762.28
-        )
-    )
-
-    children2 = Children(
-        first_name='Савин',
-        second_name='Артём',
-        middle_name='Михайлович',
-        birthday='30.05.2019',
-        alimony=AlimonyChildren(
-            total_percent=30.0,
-            alimony_percent=16.6,
-            debt=140885.13
-        )
-    )
-
-    print(report([children1,
-                 children2]))
+    # children1 = Children(
+    #     first_name='Савина',
+    #     second_name='Анна',
+    #     middle_name='Михайловна',
+    #     birthday='08.11.2016',
+    #     alimony=AlimonyChildren(
+    #         total_percent=40.0,
+    #         alimony_percent=25.0,
+    #         debt=280762.28
+    #     )
+    # )
+    #
+    # children2 = Children(
+    #     first_name='Савин',
+    #     second_name='Артём',
+    #     middle_name='Михайлович',
+    #     birthday='30.05.2019',
+    #     alimony=AlimonyChildren(
+    #         total_percent=30.0,
+    #         alimony_percent=16.6,
+    #         debt=140885.13
+    #     )
+    # )
+    child_list = []
+    for ch in CHILDRENS:
+        child_list.append(Children(**ch))
+        # pprint(ch)
+    print(report(child_list))
 
 
 if __name__ == '__main__':

@@ -10,20 +10,27 @@ from pyalimony.config import SALARY
 from pyalimony.utils import get_percent_of_salary
 
 
-class AlimonyChildren:
+class Children:
     """
-        Класс описывающий алименты с учетом долгов
+        Класс описывающий ребенка с алиментами
     """
     def __init__(self,
-                 debt: float,
-                 alimony_percent: float,
-                 total_percent: float):
+                 first_name: str,
+                 second_name: str,
+                 middle_name: str,
+                 birthday: str,
+                 alimony: dict):
+        self.first_name = first_name
+        self.second_name = second_name
+        self.middle_name = middle_name
+        self.birthday = birthday
+        self.alimony = alimony
         # Задолженность
-        self.debt = debt
+        self.debt = self.alimony["debt"]
         # Размер назначенных алиментов
-        self.alimony_percent = alimony_percent
+        self.alimony_percent = self.alimony["alimony_percent"]
         # Суммарный процент с учетом долга
-        self.total_percent = total_percent
+        self.total_percent = self.alimony["total_percent"]
         # С какого месяца задолженность
         self.start_month = 3
         # Суммарный платёж
@@ -42,23 +49,6 @@ class AlimonyChildren:
     def current_debt(self):
         cur_month = datetime.date.today().month
         return float("{:10.2f}".format(self.debt - (self.debt_payment * (cur_month - self.start_month - 1))))
-
-
-class Children:
-    """
-        Класс описывающий ребенка с алиментами
-    """
-    def __init__(self,
-                 first_name: str,
-                 second_name: str,
-                 middle_name: str,
-                 birthday: str,
-                 alimony: AlimonyChildren):
-        self.first_name = first_name
-        self.second_name = second_name
-        self.middle_name = middle_name
-        self.birthday = birthday
-        self.alimony = alimony
 
     def __repr__(self):
         return 'ФИО:\t{} {}\t{} г.р.'.format(self.first_name, self.second_name, self.birthday)
