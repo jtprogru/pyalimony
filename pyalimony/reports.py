@@ -7,7 +7,6 @@
 from typing import List
 
 from pyalimony.config import SALARY, PERCENT
-from pyalimony.struct import Children
 from pyalimony.utils import get_percent_of_salary
 
 

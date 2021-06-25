@@ -10,7 +10,9 @@ yaml = YAML(typ='safe', pure=True)
 
 CHILDRENS = []
 
-CONFIG_FILE = os.getenv("HOME") + "/.config/alimony.yaml"
+HOME = os.getenv("HOME", None)
+
+CONFIG_FILE = f"{HOME}/.config/alimony.yaml"
 
 with open(CONFIG_FILE, 'r') as stream:
     try:
