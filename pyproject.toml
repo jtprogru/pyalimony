@@ -1,32 +1,71 @@
-[tool.poetry]
+[project]
 name = "pyalimony"
-version = "2021.0.1"
-description = "Рассчет алиментов"
-authors = ["Michael Savin <jtprogru@gmail.com>"]
-license = "WTFPL"
-repository = "https://github.com/jtprogru/pyalimony"
-homepage = "https://github.com/jtprogru/pyalimony"
+version = "2026.0.0"
+description = "Расчёт алиментов и остатка задолженности по исполнительным производствам"
 readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Mikhail Savin", email = "jtprogru@gmail.com" }]
+keywords = ["alimony", "cli", "calculator", "finance"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Natural Language :: Russian",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = ["ruamel-yaml>=0.18.15"]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-"ruamel.yaml" = "^0.17.10"
+[project.scripts]
+pyalimony = "pyalimony:main"
 
-[tool.poetry.dev-dependencies]
-autopep8 = "^1.5.6"
-coverage = "^5.5"
-flake8 = "^3.9.0"
-flake8-colors = "^0.1.9"
-pytest = "^6.2.3"
-mccabe = "^0.6.1"
-mypy = "^0.812"
-pylint = "^2.7.4"
-tox = "^3.23.0"
-tox-gh-actions = "^2.5.0"
+[project.urls]
+Homepage = "https://github.com/jtprogru/pyalimony"
+Repository = "https://github.com/jtprogru/pyalimony"
+Issues = "https://github.com/jtprogru/pyalimony/issues"
+Patreon = "https://patreon.com/jtprogru"
+
+[dependency-groups]
+dev = ["mypy>=1.18", "pytest>=8.4", "pytest-cov>=7.0", "ruff>=0.14"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.scripts]
-pyalimony = 'pyalimony:main'
+[tool.hatch.build.targets.wheel]
+packages = ["pyalimony"]
+
+[tool.ruff]
+line-length = 119
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "UP",  # pyupgrade
+  "SIM", # flake8-simplify
+  "PTH", # flake8-use-pathlib
+  "RUF", # ruff-specific rules
+]
+# Проект русскоязычный: кириллица в строках, докстрингах и комментариях — норма,
+# а не «неоднозначные» символы.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.mypy]
+python_version = "3.14"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["pyalimony"]
+
+[tool.coverage.report]
+show_missing = true
