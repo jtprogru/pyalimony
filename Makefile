@@ -44,10 +44,10 @@ fmt-check:  ## Проверить форматирование без измен
 typecheck:  ## Проверить типы
 	$(UV) run mypy $(PKG)/
 
-test: config  ## Запустить тесты
+test:  ## Запустить тесты
 	$(UV) run pytest
 
-cov: config  ## Запустить тесты с отчётом о покрытии
+cov:  ## Запустить тесты с отчётом о покрытии
 	$(UV) run pytest --cov --cov-report=term-missing
 
 check: lint fmt-check typecheck cov  ## Всё, что гоняет CI
