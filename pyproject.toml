@@ -23,7 +23,6 @@ pyalimony = "pyalimony:main"
 Homepage = "https://github.com/jtprogru/pyalimony"
 Repository = "https://github.com/jtprogru/pyalimony"
 Issues = "https://github.com/jtprogru/pyalimony/issues"
-Patreon = "https://patreon.com/jtprogru"
 
 [dependency-groups]
 dev = ["mypy>=1.18", "pytest>=9.0.3", "pytest-cov>=7.0", "ruff>=0.14"]
