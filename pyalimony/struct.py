@@ -1,7 +1,5 @@
-# coding=utf-8
-
 """
-    Ключевые классы структур данных
+Ключевые классы структур данных
 """
 
 import datetime
@@ -12,14 +10,10 @@ from pyalimony.utils import get_percent_of_salary
 
 class Children:
     """
-        Класс описывающий ребенка с алиментами
+    Класс описывающий ребенка с алиментами
     """
-    def __init__(self,
-                 first_name: str,
-                 second_name: str,
-                 middle_name: str,
-                 birthday: str,
-                 alimony: dict):
+
+    def __init__(self, first_name: str, second_name: str, middle_name: str, birthday: str, alimony: dict):
         self.first_name = first_name
         self.second_name = second_name
         self.middle_name = middle_name
@@ -34,21 +28,19 @@ class Children:
         # С какого месяца задолженность
         self.start_month = 3
         # Суммарный платёж
-        self.total_payment = float("{:10.2f}".format(get_percent_of_salary(amount=SALARY,
-                                                                           percentile=self.total_percent)))
+        self.total_payment = round(get_percent_of_salary(amount=SALARY, percentile=self.total_percent), 2)
         # Платеж по алиментам
-        self.alimony_amount = float("{:10.2f}".format(get_percent_of_salary(amount=SALARY,
-                                                                            percentile=self.alimony_percent)))
+        self.alimony_amount = round(get_percent_of_salary(amount=SALARY, percentile=self.alimony_percent), 2)
         # Платеж по задолженности
-        self.debt_payment = float("{:10.2f}".format(self.total_payment - self.alimony_amount))
+        self.debt_payment = round(self.total_payment - self.alimony_amount, 2)
         # Сколько всего месяцев выплачивать задолженность
-        self.total_how_long = float("{:10.2f}".format(self.debt / self.debt_payment))
+        self.total_how_long = round(self.debt / self.debt_payment, 2)
         # Сколько осталось месяцев выплачивать задолженность
-        self.last_how_long = float("{:10.2f}".format(self.current_debt() / self.debt_payment))
+        self.last_how_long = round(self.current_debt() / self.debt_payment, 2)
 
     def current_debt(self):
         cur_month = datetime.date.today().month
-        return float("{:10.2f}".format(self.debt - (self.debt_payment * (cur_month - self.start_month - 1))))
+        return round(self.debt - (self.debt_payment * (cur_month - self.start_month - 1)), 2)
 
     def __repr__(self):
-        return 'ФИО:\t{} {}\t{} г.р.'.format(self.first_name, self.second_name, self.birthday)
+        return f"ФИО:\t{self.first_name} {self.second_name}\t{self.birthday} г.р."
