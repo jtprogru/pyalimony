@@ -8,7 +8,7 @@ import pytest
 
 import pyalimony
 from pyalimony.main import build_parser, main
-from tests.conftest import BASE_CONFIG
+from tests.conftest import BASE_CONFIG, HISTORY_CONFIG
 
 
 @pytest.fixture
@@ -66,11 +66,13 @@ def test_bad_as_of_returns_error_code(config_path, capsys):
     assert "--as-of" in capsys.readouterr().err
 
 
-def test_help_mentions_default_config_path(capsys):
+def test_help_lists_every_flag(capsys):
     with pytest.raises(SystemExit) as exc:
         main(["--help"])
     assert exc.value.code == 0
-    assert "alimony.yaml" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    for flag in ("--config", "--as-of", "--json", "--ledger", "--html", "--ledger-path", "--html-path"):
+        assert flag in out
 
 
 def test_parser_defaults():
@@ -110,3 +112,72 @@ def test_importing_package_does_not_read_config(monkeypatch, tmp_path):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: nowhere))
     for name in ("pyalimony.config", "pyalimony.struct", "pyalimony.reports", "pyalimony.main", "pyalimony"):
         importlib.reload(importlib.import_module(name))
+
+
+def test_ledger_flag_writes_csv(config_path, tmp_path, capsys):
+    target = tmp_path / "out" / "ledger.csv"
+    assert main(["--config", str(config_path), "--as-of", "31.07.2026", "--ledger", "--ledger-path", str(target)]) == 0
+    assert target.exists()
+    assert target.read_text(encoding="utf-8").startswith("month,child,")
+    assert str(target) in capsys.readouterr().out
+
+
+def test_html_flag_writes_report(config_path, tmp_path, capsys):
+    target = tmp_path / "out" / "report.html"
+    assert main(["--config", str(config_path), "--as-of", "31.07.2026", "--html", "--html-path", str(target)]) == 0
+    assert target.read_text(encoding="utf-8").startswith("<!doctype html>")
+    assert str(target) in capsys.readouterr().out
+
+
+def test_ledger_and_html_together(config_path, tmp_path, capsys):
+    csv_path = tmp_path / "ledger.csv"
+    html_path = tmp_path / "report.html"
+    code = main(
+        [
+            "--config",
+            str(config_path),
+            "--as-of",
+            "31.07.2026",
+            "--ledger",
+            "--ledger-path",
+            str(csv_path),
+            "--html",
+            "--html-path",
+            str(html_path),
+        ]
+    )
+    assert code == 0
+    assert csv_path.exists() and html_path.exists()
+    out = capsys.readouterr().out
+    assert "Выгрузка:" in out and "Отчёт:" in out
+    assert "Расчёт на" not in out  # текстовый отчёт при этих флагах не печатается
+
+
+def test_default_paths_follow_xdg(config_path, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    assert main(["--config", str(config_path), "--ledger", "--html"]) == 0
+    assert (tmp_path / "data" / "alimony" / "ledger.csv").exists()
+    assert (tmp_path / "data" / "alimony" / "report.html").exists()
+    capsys.readouterr()
+
+
+def test_unwritable_target_returns_error_code(config_path, tmp_path, capsys):
+    blocker = tmp_path / "blocker"
+    blocker.write_text("не каталог", encoding="utf-8")
+    assert main(["--config", str(config_path), "--ledger", "--ledger-path", str(blocker / "ledger.csv")]) == 1
+    assert "Ошибка записи" in capsys.readouterr().err
+
+
+def test_text_report_still_default(config_path, capsys):
+    assert main(["--config", str(config_path), "--as-of", "31.07.2026"]) == 0
+    assert "Расчёт на 31.07.2026" in capsys.readouterr().out
+
+
+def test_history_config_end_to_end(write_config, tmp_path, capsys):
+    """Полный путь на конфиге с историей дохода и перерывом в работе."""
+    path = write_config(HISTORY_CONFIG)
+    html_path = tmp_path / "report.html"
+    assert main(["--config", str(path), "--as-of", "31.07.2026", "--html", "--html-path", str(html_path)]) == 0
+    page = html_path.read_text(encoding="utf-8")
+    assert "апрель 2026" in page
+    assert "без заработка 22 дн." in page

@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from pyalimony import law
 from pyalimony.config import ChildConfig, Config
+from pyalimony.income import IncomeTimeline
 from pyalimony.utils import (
     ZERO,
     add_months,
@@ -38,7 +39,7 @@ class Child:
     """
 
     config: ChildConfig
-    net_income: Decimal
+    income: IncomeTimeline
     as_of: datetime.date
 
     @property
@@ -115,9 +116,34 @@ class Child:
         return self.config.alimony.total_percent
 
     @property
+    def net_income(self) -> Decimal:
+        """Доход за месяц расчётной даты."""
+        return self.income.income_on(self.as_of)
+
+    @property
+    def started_at(self) -> datetime.date:
+        """
+        С какой даты по этому ИП взыскиваются алименты.
+
+        Если в конфиге не указано, берётся начало истории дохода. Когда доход
+        задан одним числом без дат, отсчёт ведётся от даты постановления пристава:
+        раньше неё об этом ИП всё равно ничего не известно.
+        """
+        return self.config.alimony.started_at or self.income.start or self.debt_as_of
+
+    @property
     def total_payment(self) -> Decimal:
-        """Всё удержание по ИП за месяц."""
-        return percent_of(self.net_income, self.total_percent)
+        """Всё удержание по ИП за месяц расчётной даты."""
+        return self.total_payment_on(self.as_of)
+
+    def total_payment_on(self, day: datetime.date) -> Decimal:
+        """
+        Всё удержание по ИП за месяц, в который попадает дата.
+
+        :param day: дата внутри интересующего месяца
+        :return: сумма удержания за этот месяц
+        """
+        return percent_of(self.income.income_on(day), self.total_percent)
 
     @property
     def alimony_amount(self) -> Decimal:
@@ -208,14 +234,32 @@ class Child:
         order = self.config.alimony
         if order.alimony_fixed is not None:
             # Твёрдая сумма не может быть больше того, что вообще удерживается по ИП.
-            return min(order.alimony_fixed, self.total_payment)
+            return min(order.alimony_fixed, self.total_payment_on(day))
         if order.alimony_percent is None:  # pragma: no cover - валидация конфига этого не допускает
             return ZERO
-        return percent_of(self.net_income, order.alimony_percent)
+        return percent_of(self.income.income_on(day), order.alimony_percent)
+
+    def alimony_on(self, day: datetime.date) -> Decimal:
+        """
+        Текущий платёж по алиментам за месяц, в который попадает дата.
+
+        :param day: дата внутри интересующего месяца
+        :return: сумма текущего платежа
+        """
+        return self._alimony_on(day)
+
+    def debt_payment_on(self, day: datetime.date) -> Decimal:
+        """
+        Платёж в счёт задолженности за месяц, в который попадает дата.
+
+        :param day: дата внутри интересующего месяца
+        :return: сумма, уходящая на погашение долга
+        """
+        return self._debt_payment_on(day)
 
     def _debt_payment_on(self, day: datetime.date) -> Decimal:
         """Платёж в счёт задолженности на конкретную дату."""
-        return quantize_money(self.total_payment - self._alimony_on(day))
+        return quantize_money(self.total_payment_on(day) - self._alimony_on(day))
 
     def _debt_after(self, months: int) -> Decimal:
         """Остаток задолженности после ``months`` ежемесячных удержаний."""
@@ -237,7 +281,7 @@ class Calculation:
     """
 
     as_of: datetime.date
-    net_income: Decimal
+    income: IncomeTimeline
     other_withholding_percent: Decimal
     children: tuple[Child, ...]
     warnings: tuple[str, ...] = field(default=())
@@ -251,6 +295,16 @@ class Calculation:
     def alimony_withheld(self) -> Decimal:
         """Суммарное удержание по алиментным ИП за месяц."""
         return quantize_money(sum((child.total_payment for child in self.children), start=ZERO))
+
+    @property
+    def net_income(self) -> Decimal:
+        """Доход за месяц расчётной даты."""
+        return self.income.income_on(self.as_of)
+
+    @property
+    def income_kind(self) -> str:
+        """Как получен доход расчётного месяца: зарплата, средняя, смешанно, факт."""
+        return self.income.income_for_month(self.as_of.year, self.as_of.month).kind
 
     @property
     def other_withheld(self) -> Decimal:
@@ -302,10 +356,10 @@ def calculate(config: Config, as_of: datetime.date | None = None) -> Calculation
     :return: результат расчёта вместе с предупреждениями
     """
     day = as_of or datetime.date.today()
-    children = tuple(Child(config=child, net_income=config.net_income, as_of=day) for child in config.children)
+    children = tuple(Child(config=child, income=config.income, as_of=day) for child in config.children)
     return Calculation(
         as_of=day,
-        net_income=config.net_income,
+        income=config.income,
         other_withholding_percent=config.other_withholding_percent,
         children=children,
         warnings=tuple(check_compliance(children, config.other_withholding_percent, day)),

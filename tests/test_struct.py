@@ -6,7 +6,15 @@ from decimal import Decimal
 import pytest
 
 from pyalimony.struct import calculate
-from tests.conftest import BASE_CONFIG, CLOSED_CONFIG, DISABLED_CONFIG, EMANCIPATED_CONFIG, MINOR_ONLY_CONFIG, TODAY
+from tests.conftest import (
+    BASE_CONFIG,
+    CLOSED_CONFIG,
+    DISABLED_CONFIG,
+    EMANCIPATED_CONFIG,
+    HISTORY_CONFIG,
+    MINOR_ONLY_CONFIG,
+    TODAY,
+)
 
 
 @pytest.fixture
@@ -528,3 +536,47 @@ def test_disabled_with_early_termination(calc):
     assert child.obligation_end == datetime.date(2026, 5, 1)
     assert child.obligation_active is False
     assert child.alimony_amount == Decimal("0.00")
+
+
+def test_child_net_income_follows_the_timeline(config_from_text):
+    """Доход ребёнка берётся за месяц расчётной даты, а не константой."""
+    config = config_from_text(HISTORY_CONFIG)
+    april = calculate(config, as_of=datetime.date(2026, 4, 15)).children[0]
+    march = calculate(config, as_of=datetime.date(2026, 3, 15)).children[0]
+    assert april.net_income == Decimal("108133.33")
+    assert march.net_income == Decimal("140000.00")
+
+
+def test_withholding_follows_the_income_of_the_month(config_from_text):
+    config = config_from_text(HISTORY_CONFIG)
+    april = calculate(config, as_of=datetime.date(2026, 4, 15)).children[0]
+    assert april.total_payment == Decimal("43253.33")  # 40 % от 108133.33
+    assert april.total_payment_on(datetime.date(2026, 3, 1)) == Decimal("56000.00")
+
+
+@pytest.mark.parametrize(
+    ("as_of", "kind"),
+    [
+        ((2026, 3, 15), "salary"),
+        ((2026, 4, 15), "mixed"),
+        ((2026, 5, 15), "salary"),
+        ((2025, 1, 15), "none"),
+    ],
+)
+def test_calculation_income_kind(config_from_text, as_of, kind):
+    assert calculate(config_from_text(HISTORY_CONFIG), as_of=datetime.date(*as_of)).income_kind == kind
+
+
+def test_fully_unemployed_month_kind(config_from_text):
+    """Весь апрель без заработка — доход целиком по средней зарплате."""
+    config = HISTORY_CONFIG.replace(
+        "      - from: '01.10.2025'\n        to: '05.04.2026'\n        net_monthly: 140000\n"
+        "      - from: '06.04.2026'\n        to: '27.04.2026'\n        unemployed: true\n"
+        "      - from: '28.04.2026'\n        net_monthly: 210000\n",
+        "      - from: '01.10.2025'\n        to: '31.03.2026'\n        net_monthly: 140000\n"
+        "      - from: '01.04.2026'\n        to: '30.04.2026'\n        unemployed: true\n"
+        "      - from: '01.05.2026'\n        net_monthly: 210000\n",
+    )
+    result = calculate(config_from_text(config), as_of=datetime.date(2026, 4, 15))
+    assert result.income_kind == "unemployed"
+    assert result.net_income == Decimal("87000.00")

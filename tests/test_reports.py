@@ -102,7 +102,7 @@ def test_warnings_block_empty_when_clean(calc):
     result = calc(BASE_CONFIG, as_of=datetime.date(2030, 1, 1))
     clean = type(result)(
         as_of=result.as_of,
-        net_income=result.net_income,
+        income=result.income,
         other_withholding_percent=result.other_withholding_percent,
         children=result.children,
         warnings=(),
@@ -235,3 +235,15 @@ def test_as_dict_for_closed_order(calc):
     assert child["closed"] is True
     assert child["obligation_active"] is False
     assert child["total_payment"] == 0.0
+
+
+def test_summary_notes_partially_unemployed_month(calc):
+    from tests.conftest import HISTORY_CONFIG
+
+    summary = render_summary(calc(HISTORY_CONFIG, as_of=datetime.date(2026, 4, 15)))
+    assert "часть месяца без заработка" in summary
+    assert "п. 4 ст. 113 СК РФ" in summary
+
+
+def test_summary_has_no_note_for_a_plain_month(base):
+    assert "ст. 113 СК РФ" not in render_summary(base)

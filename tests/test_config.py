@@ -8,12 +8,12 @@ import pytest
 
 from pyalimony.config import default_config_path, load_config
 from pyalimony.errors import ConfigError
-from tests.conftest import BASE_CONFIG
+from tests.conftest import BASE_CONFIG, HISTORY_CONFIG
 
 
 def test_loads_income_and_children(load):
     config = load(BASE_CONFIG)
-    assert config.net_income == Decimal("100000.00")
+    assert config.income.income_for_month(2026, 7).amount == Decimal("100000.00")
     assert config.other_withholding_percent == Decimal("0.0")
     assert len(config.children) == 2
 
@@ -88,11 +88,6 @@ def test_debt_defaults_to_zero_with_today_snapshot(load):
     order = config.children[0].alimony
     assert order.debt == Decimal("0.00")
     assert order.debt_as_of == datetime.date.today()
-
-
-def test_default_config_path_points_to_home():
-    path = default_config_path()
-    assert path == Path.home() / ".config" / "alimony.yaml"
 
 
 def test_missing_file_gives_readable_error(tmp_path):
@@ -373,3 +368,213 @@ def test_obligation_ended_in_the_future_rejected(load):
 def test_obligation_ended_must_be_a_date(load):
     with pytest.raises(ConfigError, match="obligation_ended"):
         load(BASE_CONFIG.replace("birthday: '30.11.2006'", "birthday: '30.11.2006'\n    obligation_ended: 'когда-то'"))
+
+
+def test_income_periods(load):
+    config = load(HISTORY_CONFIG)
+    assert len(config.income.periods) == 3
+    assert config.income.start == datetime.date(2025, 10, 1)
+    assert config.income.average_wage == Decimal("87000.00")
+    assert config.income.periods[1].unemployed is True
+    assert config.income.periods[2].end is None
+
+
+def test_scalar_income_is_open_ended(load):
+    """Постоянный доход покрывает и прошлое: у периода нет даты начала."""
+    config = load(BASE_CONFIG)
+    assert config.income.start is None
+    assert config.income.income_for_month(2010, 1).amount == Decimal("100000.00")
+
+
+def test_periods_are_sorted(load):
+    """Порядок в YAML не важен, отрезки сортируются по дате."""
+    reordered = HISTORY_CONFIG.replace(
+        "      - from: '01.10.2025'\n        to: '05.04.2026'\n        net_monthly: 140000\n", ""
+    ).replace(
+        "    average_wage: 87000",
+        "      - from: '01.10.2025'\n        to: '05.04.2026'\n        net_monthly: 140000\n\n    average_wage: 87000",
+    )
+    config = load(reordered)
+    assert [period.start for period in config.income.periods] == [
+        datetime.date(2025, 10, 1),
+        datetime.date(2026, 4, 6),
+        datetime.date(2026, 4, 28),
+    ]
+
+
+def test_both_income_forms_rejected(load):
+    with pytest.raises(ConfigError, match="но не оба"):
+        load(HISTORY_CONFIG.replace("    average_wage: 87000", "    net_income: 100000\n    average_wage: 87000"))
+
+
+def test_no_income_at_all_rejected(load):
+    with pytest.raises(ConfigError, match="'net_income' или 'income'"):
+        load(BASE_CONFIG.replace("net_income: 100000", "unused: 1"))
+
+
+def test_gap_in_income_history_rejected(load):
+    """Молчаливая дыра — самый лёгкий способ получить сюрприз, поэтому это ошибка."""
+    with pytest.raises(ConfigError, match=r"дыра с 06\.04\.2026 по 27\.04\.2026"):
+        load(
+            HISTORY_CONFIG.replace(
+                "      - from: '06.04.2026'\n        to: '27.04.2026'\n        unemployed: true\n", ""
+            )
+        )
+
+
+def test_overlapping_income_periods_rejected(load):
+    with pytest.raises(ConfigError, match="пересекается со следующим"):
+        load(HISTORY_CONFIG.replace("to: '05.04.2026'", "to: '20.04.2026'"))
+
+
+def test_open_period_must_be_last(load):
+    with pytest.raises(ConfigError, match="только последний период"):
+        load(HISTORY_CONFIG.replace("        to: '05.04.2026'\n", ""))
+
+
+def test_income_period_to_before_from_rejected(load):
+    with pytest.raises(ConfigError, match="'to' раньше даты 'from'"):
+        load(HISTORY_CONFIG.replace("to: '05.04.2026'", "to: '05.04.2024'"))
+
+
+def test_income_period_in_the_future_rejected(load):
+    future = datetime.date.today().replace(year=datetime.date.today().year + 1)
+    with pytest.raises(ConfigError, match="начинается в будущем"):
+        load(HISTORY_CONFIG.replace("from: '28.04.2026'", f"from: '{future:%d.%m.%Y}'"))
+
+
+def test_unemployed_period_needs_average_wage(load):
+    with pytest.raises(ConfigError, match="нужен average_wage"):
+        load(HISTORY_CONFIG.replace("    average_wage: 87000\n", ""))
+
+
+def test_period_with_both_income_and_unemployed_rejected(load):
+    with pytest.raises(ConfigError, match="одновременно с доходом и без него"):
+        load(HISTORY_CONFIG.replace("        unemployed: true", "        unemployed: true\n        net_monthly: 1"))
+
+
+def test_period_without_income_or_flag_rejected(load):
+    with pytest.raises(ConfigError, match="нужен либо net_monthly"):
+        load(HISTORY_CONFIG.replace("        unemployed: true", "        unemployed: false"))
+
+
+def test_negative_period_income_rejected(load):
+    with pytest.raises(ConfigError, match="доход не может быть отрицательным"):
+        load(HISTORY_CONFIG.replace("net_monthly: 140000", "net_monthly: -1"))
+
+
+def test_income_must_be_a_list(load):
+    with pytest.raises(ConfigError, match="непустой список периодов"):
+        load("""
+            ---
+            income: 100000
+            children:
+              - surname: 'И'
+                name: 'И'
+                birthday: '01.01.2015'
+                alimony:
+                  total_percent: 25.0
+                  alimony_percent: 25.0
+            """)
+
+
+def test_income_period_must_be_a_mapping(load):
+    with pytest.raises(ConfigError, match=r"income\[1\]: ожидался словарь"):
+        load("""
+            ---
+            income:
+              - просто строка
+            children:
+              - surname: 'И'
+                name: 'И'
+                birthday: '01.01.2015'
+                alimony:
+                  total_percent: 25.0
+                  alimony_percent: 25.0
+            """)
+
+
+def test_non_positive_average_wage_rejected(load):
+    with pytest.raises(ConfigError, match="average_wage"):
+        load(HISTORY_CONFIG.replace("average_wage: 87000", "average_wage: 0"))
+
+
+def test_income_actual_overrides_a_month(load):
+    config = load(
+        HISTORY_CONFIG.replace(
+            "    average_wage: 87000", "    average_wage: 87000\n    income_actual:\n      '04.2026': 152300"
+        )
+    )
+    assert config.income.income_for_month(2026, 4).amount == Decimal("152300.00")
+
+
+def test_income_actual_accepts_iso_month(load):
+    config = load(
+        HISTORY_CONFIG.replace(
+            "    average_wage: 87000", "    average_wage: 87000\n    income_actual:\n      '2026-04': 152300"
+        )
+    )
+    assert config.income.income_for_month(2026, 4).amount == Decimal("152300.00")
+
+
+def test_income_actual_must_be_a_mapping(load):
+    with pytest.raises(ConfigError, match="income_actual: ожидается словарь"):
+        load(HISTORY_CONFIG.replace("    average_wage: 87000", "    average_wage: 87000\n    income_actual: 100"))
+
+
+def test_income_actual_bad_month_rejected(load):
+    with pytest.raises(ConfigError, match="не удалось разобрать месяц"):
+        load(
+            HISTORY_CONFIG.replace(
+                "    average_wage: 87000", "    average_wage: 87000\n    income_actual:\n      'апрель': 1"
+            )
+        )
+
+
+def test_income_actual_negative_rejected(load):
+    with pytest.raises(ConfigError, match="доход не может быть отрицательным"):
+        load(
+            HISTORY_CONFIG.replace(
+                "    average_wage: 87000", "    average_wage: 87000\n    income_actual:\n      '04.2026': -1"
+            )
+        )
+
+
+def test_started_at(load):
+    assert load(HISTORY_CONFIG).children[0].alimony.started_at == datetime.date(2025, 10, 1)
+    assert load(BASE_CONFIG).children[0].alimony.started_at is None
+
+
+def test_started_at_before_birth_rejected(load):
+    with pytest.raises(ConfigError, match=r"started_at.*раньше рождения"):
+        load(HISTORY_CONFIG.replace("started_at: '01.10.2025'", "started_at: '01.10.1990'"))
+
+
+def test_started_at_in_the_future_rejected(load):
+    future = datetime.date.today().replace(year=datetime.date.today().year + 1)
+    with pytest.raises(ConfigError, match=r"started_at.*в будущем"):
+        load(HISTORY_CONFIG.replace("started_at: '01.10.2025'", f"started_at: '{future:%d.%m.%Y}'"))
+
+
+def test_default_config_path_prefers_the_app_directory(monkeypatch, tmp_path):
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    (tmp_path / ".config" / "alimony").mkdir(parents=True)
+    (tmp_path / ".config" / "alimony" / "config.yaml").write_text("", encoding="utf-8")
+    (tmp_path / ".config" / "alimony.yaml").write_text("", encoding="utf-8")
+    assert default_config_path() == tmp_path / ".config" / "alimony" / "config.yaml"
+
+
+def test_default_config_path_falls_back_to_the_old_location(monkeypatch, tmp_path):
+    """Конфиг с прежнего пути продолжает работать, пока его не перенесли."""
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    (tmp_path / ".config").mkdir(parents=True)
+    (tmp_path / ".config" / "alimony.yaml").write_text("", encoding="utf-8")
+    assert default_config_path() == tmp_path / ".config" / "alimony.yaml"
+
+
+def test_default_config_path_without_any_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    assert default_config_path() == tmp_path / ".config" / "alimony" / "config.yaml"

@@ -109,6 +109,46 @@ EMANCIPATED_CONFIG = """
           debt_as_of: '01.01.2026'
     """
 
+# История дохода с перерывом внутри месяца: 1-5 апреля работа, 6-27 без заработка,
+# с 28-го новая работа. Ровно тот случай, ради которого доход задан датами.
+HISTORY_CONFIG = """
+    ---
+    income:
+      - from: '01.10.2025'
+        to: '05.04.2026'
+        net_monthly: 140000
+      - from: '06.04.2026'
+        to: '27.04.2026'
+        unemployed: true
+      - from: '28.04.2026'
+        net_monthly: 210000
+
+    average_wage: 87000
+
+    children:
+      - surname: 'Иванов'
+        name: 'Иван'
+        patronymic: 'Иванович'
+        birthday: '30.11.2006'
+        alimony:
+          total_percent: 40.0
+          alimony_percent: 25.0
+          debt: 200000
+          debt_as_of: '01.03.2026'
+          started_at: '01.10.2025'
+
+      - surname: 'Петров'
+        name: 'Пётр'
+        patronymic: 'Петрович'
+        birthday: '08.05.2015'
+        alimony:
+          total_percent: 30.0
+          alimony_percent: 25.0
+          debt: 100000
+          debt_as_of: '01.03.2026'
+          started_at: '01.10.2025'
+    """
+
 
 @pytest.fixture
 def write_config(tmp_path):

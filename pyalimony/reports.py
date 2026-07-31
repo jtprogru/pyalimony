@@ -12,6 +12,14 @@ from pyalimony.utils import ZERO, format_date, format_money, format_percent, plu
 _LABEL_WIDTH = 42
 _WRAP_WIDTH = 100
 
+# Пояснение к доходу расчётного месяца, если он получен не только из заработка.
+_INCOME_KIND_NOTES = {
+    "unemployed": "весь месяц без заработка — доход взят по средней зарплате (п. 4 ст. 113 СК РФ)",
+    "mixed": "часть месяца без заработка — эти дни посчитаны по средней зарплате (п. 4 ст. 113 СК РФ)",
+    "actual": "указан фактический доход за месяц",
+    "none": "за этот месяц дохода в истории нет",
+}
+
 
 def _row(label: str, value: str, indent: int = 0) -> str:
     pad = " " * indent
@@ -27,6 +35,8 @@ def render_summary(calc: Calculation) -> str:
     """
     out = f"Расчёт на {format_date(calc.as_of)}\n\n"
     out += _row("Чистый доход в месяц (после НДФЛ):", format_money(calc.net_income))
+    if calc.income_kind in _INCOME_KIND_NOTES:
+        out += f"  {_INCOME_KIND_NOTES[calc.income_kind]}\n"
     out += _row(
         f"Удержания по алиментным ИП ({format_percent(calc.alimony_percent)}):",
         format_money(calc.alimony_withheld),

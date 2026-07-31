@@ -1,9 +1,10 @@
 .DEFAULT_GOAL := help
-.PHONY: help install sync lock upgrade config run lint fmt fmt-check typecheck test cov check build clean
+.PHONY: help install sync lock upgrade config run ledger html lint fmt fmt-check typecheck test cov check build clean
 
 UV ?= uv
 PKG := pyalimony
-CONFIG := $(HOME)/.config/alimony.yaml
+CONFIG_DIR := $(HOME)/.config/alimony
+CONFIG := $(CONFIG_DIR)/config.yaml
 
 help:  ## Показать список целей
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -21,7 +22,7 @@ upgrade:  ## Обновить зависимости до последних в�
 	$(UV) lock --upgrade
 	$(UV) sync --all-groups
 
-config: $(CONFIG)  ## Положить пример конфига в ~/.config/alimony.yaml, если его нет
+config: $(CONFIG)  ## Положить пример конфига в ~/.config/alimony/config.yaml, если его нет
 
 $(CONFIG): config.yaml
 	@mkdir -p $(dir $(CONFIG))
@@ -30,6 +31,12 @@ $(CONFIG): config.yaml
 
 run: config  ## Запустить утилиту
 	$(UV) run $(PKG)
+
+ledger: config  ## Собрать помесячную выгрузку в CSV
+	$(UV) run $(PKG) --ledger
+
+html: config  ## Собрать HTML-отчёт по выгрузке
+	$(UV) run $(PKG) --ledger --html
 
 lint:  ## Проверить код линтером
 	$(UV) run ruff check .
