@@ -6,69 +6,42 @@ name: CI
   pull_request:
     branches: [ '*' ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ 3.9 ]
-        poetry-version: [ 1.1.6 ]
-        os: [ ubuntu-20.04 ]
-
-    runs-on: ${{ matrix.os }}
+        python-version: [ '3.14' ]
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
-      - name: Run image
-        uses: abatilo/actions-poetry@v2.0.0
-        with:
-          poetry-version: ${{ matrix.poetry-version }}
 
       - name: Install dependencies
-        run: |
-          poetry install
+        run: uv sync --locked --all-groups
 
       - name: Generate config
         run: |
-          echo """---
-              SALARY: 1000000
-              PERCENT: 70.0
-              childrens:
-                - first_name: 'Иванов'
-                  second_name: 'Иван'
-                  middle_name: 'Михайловна'
-                  birthday: '30.11.2006'
-                  alimony:
-                    total_percent: 40.0
-                    alimony_percent: 25.0
-                    debt: 200000
+          mkdir -p ~/.config
+          cp config.yaml ~/.config/alimony.yaml
 
-                - first_name: 'Савин'
-                  second_name: 'Артём'
-                  middle_name: 'Михайлович'
-                  birthday: '08.05.2009'
-                  alimony:
-                    total_percent: 30.0
-                    alimony_percent: 16.6
-                    debt: 100000
-              """ > ~/.config/alimony.yaml
-
-      - name: Linters
+      - name: Lint
         run: |
-          poetry run flake8 pyalimony/
-          poetry run pylint --disable=C0305 --output-format=colorized pyalimony/
-          poetry run mypy pyalimony/
+          uv run ruff check .
+          uv run ruff format --check .
 
-      - name: Coverage
-        run: |
-          poetry run coverage erase
-          poetry run coverage run -m pytest -ra
-          poetry run coverage report -m
+      - name: Type check
+        run: uv run mypy pyalimony/
 
-      - name: Test with pytest
-        run: |
-          poetry run pytest -x
+      - name: Tests with coverage
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
